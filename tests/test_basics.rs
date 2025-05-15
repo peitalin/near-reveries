@@ -14,6 +14,14 @@ async fn test_basics_on(contract_wasm: &[u8]) -> Result<(), Box<dyn std::error::
 
     let user_account = sandbox.dev_create_account().await?;
 
+    // Initialize the contract
+    let init_outcome = contract
+        .call("new")
+        .args_json(json!({"trusted_account": user_account.id()}))
+        .transact()
+        .await?;
+    assert!(init_outcome.is_success(), "Initialization failed: {:#?}", init_outcome.into_result().unwrap_err());
+
     let outcome = user_account
         .call(contract.id(), "set_greeting")
         .args_json(json!({"greeting": "Hello World!"}))
