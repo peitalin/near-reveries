@@ -1,4 +1,5 @@
 #!/bin/bash
+source .env
 
 cargo near deploy build-reproducible-wasm yellow-loong.testnet \
 	without-init-call \
