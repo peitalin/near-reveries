@@ -4,7 +4,6 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
 use near_sdk::{env, near_bindgen, AccountId};
 
-// Define the contract structure
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct PaymentContract {
@@ -14,7 +13,6 @@ pub struct PaymentContract {
     trusted_account: AccountId,
 }
 
-// Implement the contract structure
 #[near]
 impl PaymentContract {
     #[init]
@@ -27,12 +25,10 @@ impl PaymentContract {
         }
     }
 
-    // Public method - returns the greeting saved
     pub fn get_greeting(&self) -> String {
         self.greeting.clone()
     }
 
-    // Public method - accepts a greeting, such as "howdy", and records it
     pub fn set_greeting(&mut self, greeting: String) {
         log!("Saving greeting: {greeting}");
         self.greeting = greeting;
