@@ -3,7 +3,7 @@ source .env
 
 # Deploy the contract
 cargo near deploy build-reproducible-wasm $CONTRACT_ACCOUNT_ID \
-	with-init-call new json-args '{"trusted_account": "$CONTRACT_ACCOUNT_ID"}' \
+	with-init-call new json-args '{"trusted_account": "cyan-loong.testnet"}' \
 	prepaid-gas '100.0 Tgas' \
 	attached-deposit '0 NEAR' \
 	network-config testnet \
