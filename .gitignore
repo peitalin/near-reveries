@@ -2,3 +2,5 @@
 
 .env
 roadmap.md
+commands.sh
+deploy-short.sh
