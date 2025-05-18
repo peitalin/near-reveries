@@ -53,7 +53,8 @@ impl PaymentContract {
     }
 
     // Checks if a user can spend a certain amount.
-    pub fn can_spend(&self, user_id: AccountId, amount: u128) -> bool {
+    pub fn can_spend(&self, user_id: AccountId, amount_str: String) -> bool {
+        let amount = amount_str.parse::<u128>().expect("Failed to parse amount string to u128 in can_spend");
         self.get_balance(user_id) >= amount
     }
 
@@ -190,8 +191,8 @@ mod tests {
         testing_env!(get_context(user.clone(), 100).build());
         contract.deposit();
 
-        assert!(contract.can_spend(user.clone(), 50));
-        assert!(contract.can_spend(user.clone(), 100));
+        assert!(contract.can_spend(user.clone(), "50".to_string()));
+        assert!(contract.can_spend(user.clone(), "100".to_string()));
     }
 
     #[test]
@@ -203,7 +204,7 @@ mod tests {
         testing_env!(get_context(user.clone(), 100).build());
         contract.deposit();
 
-        assert!(!contract.can_spend(user.clone(), 101));
+        assert!(!contract.can_spend(user.clone(), "101".to_string()));
     }
 
     #[test]
@@ -213,7 +214,7 @@ mod tests {
         let contract = new_contract(trusted_account.clone());
         let unknown_user = AccountId::try_from("unknown.testnet".to_string()).unwrap();
 
-        assert!(!contract.can_spend(unknown_user, 1));
+        assert!(!contract.can_spend(unknown_user, "1".to_string()));
     }
 
     #[test]
@@ -359,5 +360,26 @@ mod tests {
         contract.withdraw(initial_deposit); // Withdraw everything
         assert_eq!(contract.get_balance(user.clone()), 0);
         assert!(contract.balances.get(&user).is_none(), "User entry should be removed from balances if balance is zero");
+    }
+
+    #[test]
+    fn test_can_spend_large_amount() {
+        let user = accounts(1);
+        let trusted = accounts(2);
+        let mut contract = new_contract(trusted.clone());
+
+        let deposit_amount = NearToken::from_near(3).as_yoctonear(); // 3 NEAR
+        testing_env!(get_context(user.clone(), deposit_amount).build());
+        contract.deposit();
+        assert_eq!(contract.get_balance(user.clone()), deposit_amount);
+
+        let large_spend_amount_str = "2400000000000000000000000".to_string(); // 2.4 NEAR
+        let slightly_larger_spend_amount_str = "3100000000000000000000000".to_string(); // 3.1 NEAR
+
+        // Check can spend 2.4 NEAR (should be true)
+        assert!(contract.can_spend(user.clone(), large_spend_amount_str));
+
+        // Check can spend 3.1 NEAR (should be false)
+        assert!(!contract.can_spend(user.clone(), slightly_larger_spend_amount_str));
     }
 }
