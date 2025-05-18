@@ -86,6 +86,35 @@ impl PaymentContract {
         log!("Trusted account updated from {} to {}", self.trusted_account, new_trusted_account);
         self.trusted_account = new_trusted_account;
     }
+
+    // Allows users to withdraw their deposited NEAR.
+    pub fn withdraw(&mut self, amount: u128) {
+        let user_id = env::predecessor_account_id();
+        let current_balance = self.get_balance(user_id.clone());
+
+        assert!(amount > 0, "Withdrawal amount must be greater than 0");
+        assert!(
+            current_balance >= amount,
+            "Insufficient balance to withdraw. User has {}, requested {}",
+            current_balance,
+            amount
+        );
+
+        let new_balance = current_balance - amount;
+        if new_balance == 0 {
+            self.balances.remove(&user_id);
+        } else {
+            self.balances.insert(user_id.clone(), new_balance);
+        }
+
+        near_sdk::Promise::new(user_id.clone()).transfer(near_sdk::NearToken::from_yoctonear(amount));
+        log!(
+            "Withdrew {} yoctoNEAR for user {}. New balance: {}",
+            amount,
+            user_id,
+            new_balance
+        );
+    }
 }
 
 /*
@@ -256,5 +285,79 @@ mod tests {
 
         testing_env!(get_context(non_contract_account.clone(), 0).build());
         contract.update_trusted_account(new_trusted_account.clone());
+    }
+
+    #[test]
+    fn test_withdraw_successful() {
+        let user = accounts(1);
+        let trusted = accounts(2);
+        let mut contract = new_contract(trusted.clone());
+
+        // Deposit some NEAR
+        testing_env!(get_context(user.clone(), NearToken::from_near(10).as_yoctonear()).build());
+        contract.deposit();
+        assert_eq!(contract.get_balance(user.clone()), NearToken::from_near(10).as_yoctonear());
+
+        // Withdraw some NEAR
+        testing_env!(get_context(user.clone(), 0).build()); // No deposit attached for withdrawal
+        contract.withdraw(NearToken::from_near(3).as_yoctonear());
+        assert_eq!(contract.get_balance(user.clone()), NearToken::from_near(7).as_yoctonear());
+    }
+
+    #[test]
+    #[should_panic(expected = "Insufficient balance to withdraw.")]
+    fn test_withdraw_insufficient_funds() {
+        let user = accounts(1);
+        let trusted = accounts(2);
+        let mut contract = new_contract(trusted.clone());
+
+        testing_env!(get_context(user.clone(), NearToken::from_near(5).as_yoctonear()).build());
+        contract.deposit();
+
+        testing_env!(get_context(user.clone(), 0).build());
+        contract.withdraw(NearToken::from_near(10).as_yoctonear()); // Trying to withdraw more than balance
+    }
+
+    #[test]
+    #[should_panic(expected = "Withdrawal amount must be greater than 0")]
+    fn test_withdraw_zero_amount() {
+        let user = accounts(1);
+        let trusted = accounts(2);
+        let mut contract = new_contract(trusted.clone());
+
+        testing_env!(get_context(user.clone(), NearToken::from_near(5).as_yoctonear()).build());
+        contract.deposit();
+
+        testing_env!(get_context(user.clone(), 0).build());
+        contract.withdraw(0);
+    }
+
+    #[test]
+    #[should_panic(expected = "Insufficient balance to withdraw.")] // or specific error for no balance
+    fn test_withdraw_no_balance() {
+        let user = accounts(1);
+        let trusted = accounts(2);
+        let mut contract = new_contract(trusted.clone());
+
+        // User has not deposited anything
+        testing_env!(get_context(user.clone(), 0).build());
+        contract.withdraw(NearToken::from_near(1).as_yoctonear());
+    }
+
+    #[test]
+    fn test_withdraw_entire_balance() {
+        let user = accounts(1);
+        let trusted = accounts(2);
+        let mut contract = new_contract(trusted.clone());
+
+        let initial_deposit = NearToken::from_near(5).as_yoctonear();
+        testing_env!(get_context(user.clone(), initial_deposit).build());
+        contract.deposit();
+        assert_eq!(contract.get_balance(user.clone()), initial_deposit);
+
+        testing_env!(get_context(user.clone(), 0).build());
+        contract.withdraw(initial_deposit); // Withdraw everything
+        assert_eq!(contract.get_balance(user.clone()), 0);
+        assert!(contract.balances.get(&user).is_none(), "User entry should be removed from balances if balance is zero");
     }
 }
