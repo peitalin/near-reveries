@@ -2039,8 +2039,11 @@ dependencies = [
 name = "near-reveries"
 version = "0.1.0"
 dependencies = [
+ "borsh",
  "near-sdk",
  "near-workspaces",
+ "schemars",
+ "serde",
  "serde_json",
  "tokio",
 ]

@@ -4,13 +4,40 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
 use near_sdk::{env, near_bindgen, AccountId};
 use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
+
+pub type ReverieId = String;
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ReverieMetadata {
+    pub reverie_type: String,
+    pub description: String,
+    pub access_condition: AccessCondition,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(tag = "type", content = "value", crate = "near_sdk::serde")]
+pub enum AccessCondition {
+    Umbral(String), // Use String for public key serialization
+    Ecdsa(String), // Use String for address serialization
+    Ed25519(String),
+    Contract {
+        address: String,
+        access_function_name: String,
+        access_function_args: String, // Store as JSON string
+    },
+}
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct PaymentContract {
     greeting: String,
-    balances: LookupMap<String, LookupMap<AccountId, u128>>,
     trusted_account: AccountId,
+    balances: LookupMap<String, LookupMap<AccountId, u128>>,
+    reverie_ids: Vec<ReverieId>,
+    reverie_registry: LookupMap<ReverieId, ReverieMetadata>,
 }
 
 #[near]
@@ -21,6 +48,8 @@ impl PaymentContract {
             greeting: "Hello".to_string(),
             balances: LookupMap::new(b"b"),
             trusted_account,
+            reverie_ids: Vec::new(),
+            reverie_registry: LookupMap::new(b"r"),
         }
     }
 
@@ -125,6 +154,35 @@ impl PaymentContract {
             new_balance
         );
     }
+
+    /// Create a new reverie entry. Only the contract account can call this.
+    pub fn create_reverie(
+        &mut self,
+        reverie_id: ReverieId,
+        reverie_type: String,
+        description: String,
+        access_condition: AccessCondition,
+    ) {
+        assert_eq!(env::predecessor_account_id(), self.trusted_account, "Only the trusted account can create reveries");
+        assert!(self.reverie_registry.get(&reverie_id).is_none(), "ReverieId already exists");
+        let metadata = ReverieMetadata {
+            reverie_type,
+            description,
+            access_condition,
+        };
+        self.reverie_ids.push(reverie_id.clone());
+        self.reverie_registry.insert(reverie_id, metadata);
+    }
+
+    /// For testing only
+    pub fn delete_all_reveries(&mut self) {
+        assert_eq!(env::predecessor_account_id(), self.trusted_account, "Only the trusted account can delete all reveries");
+        for key in self.reverie_ids.iter() {
+            self.reverie_registry.remove(key);
+        }
+        self.reverie_ids.clear();
+    }
+
 }
 
 #[cfg(test)]
