@@ -3,6 +3,7 @@ use near_sdk::{log, near, PanicOnDefault, NearToken};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
 use near_sdk::{env, near_bindgen, AccountId};
+use near_sdk::json_types::U128;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -47,32 +48,35 @@ impl PaymentContract {
     }
 
     // Gets the balance of a user.
-    pub fn get_balance(&self, user_id: AccountId) -> u128 {
-        let balance = *self.balances.get(&user_id).unwrap_or(&0);
-        balance
+    pub fn get_balance(&self, user_id: AccountId) -> U128 {
+        U128(*self.balances.get(&user_id).unwrap_or(&0))
+    }
+
+    // Internal helper to get raw u128 balance
+    fn get_balance_internal(&self, user_id: AccountId) -> u128 {
+        *self.balances.get(&user_id).unwrap_or(&0)
     }
 
     // Checks if a user can spend a certain amount.
-    pub fn can_spend(&self, user_id: AccountId, amount_str: String) -> bool {
-        let amount = amount_str.parse::<u128>().expect("Failed to parse amount string to u128 in can_spend");
-        self.get_balance(user_id) >= amount
+    pub fn can_spend(&self, user_id: AccountId, amount: U128) -> bool {
+        self.get_balance_internal(user_id) >= amount.0
     }
 
     // Records a spend for a user. Only callable by the trusted account.
-    pub fn record_spend(&mut self, user_id: AccountId, amount_to_spend: u128) {
+    pub fn record_spend(&mut self, user_id: AccountId, amount_to_spend: U128) {
         assert_eq!(
             env::predecessor_account_id(),
             self.trusted_account,
             "Only the trusted account can call this method"
         );
-        let current_balance = self.get_balance(user_id.clone());
+        let current_balance = self.get_balance_internal(user_id.clone());
         assert!(
-            current_balance >= amount_to_spend,
-            "Insufficient balance to record spend. User has {}, needed {}", current_balance, amount_to_spend
+            current_balance >= amount_to_spend.0,
+            "Insufficient balance to record spend. User has {}, needed {}", current_balance, amount_to_spend.0
         );
-        let new_balance = current_balance - amount_to_spend;
+        let new_balance = current_balance - amount_to_spend.0;
         self.balances.insert(user_id.clone(), new_balance);
-        log!("Recorded spend of {} for user {}", amount_to_spend, user_id);
+        log!("Recorded spend of {} for user {}", amount_to_spend.0, user_id);
     }
 
     // Getter for the trusted account (optional, for verification/management)
@@ -89,29 +93,29 @@ impl PaymentContract {
     }
 
     // Allows users to withdraw their deposited NEAR.
-    pub fn withdraw(&mut self, amount: u128) {
+    pub fn withdraw(&mut self, amount: U128) {
         let user_id = env::predecessor_account_id();
-        let current_balance = self.get_balance(user_id.clone());
+        let current_balance = self.get_balance_internal(user_id.clone());
 
-        assert!(amount > 0, "Withdrawal amount must be greater than 0");
+        assert!(amount.0 > 0, "Withdrawal amount must be greater than 0");
         assert!(
-            current_balance >= amount,
+            current_balance >= amount.0,
             "Insufficient balance to withdraw. User has {}, requested {}",
             current_balance,
-            amount
+            amount.0
         );
 
-        let new_balance = current_balance - amount;
+        let new_balance = current_balance - amount.0;
         if new_balance == 0 {
             self.balances.remove(&user_id);
         } else {
             self.balances.insert(user_id.clone(), new_balance);
         }
 
-        near_sdk::Promise::new(user_id.clone()).transfer(near_sdk::NearToken::from_yoctonear(amount));
+        near_sdk::Promise::new(user_id.clone()).transfer(near_sdk::NearToken::from_yoctonear(amount.0));
         log!(
             "Withdrew {} yoctoNEAR for user {}. New balance: {}",
-            amount,
+            amount.0,
             user_id,
             new_balance
         );
@@ -167,11 +171,11 @@ mod tests {
 
         testing_env!(get_context(user.clone(), 100).build());
         contract.deposit();
-        assert_eq!(contract.get_balance(user.clone()), 100);
+        assert_eq!(contract.get_balance(user.clone()), U128(100));
 
         testing_env!(get_context(user.clone(), 50).build());
         contract.deposit();
-        assert_eq!(contract.get_balance(user.clone()), 150);
+        assert_eq!(contract.get_balance(user.clone()), U128(150));
     }
 
     #[test]
@@ -179,7 +183,7 @@ mod tests {
         let trusted_account = accounts(1);
         let contract = new_contract(trusted_account.clone());
         let unknown_user = AccountId::try_from("unknown.testnet".to_string()).unwrap();
-        assert_eq!(contract.get_balance(unknown_user), 0);
+        assert_eq!(contract.get_balance(unknown_user), U128(0));
     }
 
     #[test]
@@ -188,12 +192,13 @@ mod tests {
         let trusted_account = accounts(2);
         let mut contract = new_contract(trusted_account.clone());
 
-        testing_env!(get_context(user.clone(), 100).build());
+        testing_env!(get_context(user.clone(), NearToken::from_near(100).as_yoctonear()).build());
         contract.deposit();
 
-        assert!(contract.can_spend(user.clone(), "50".to_string()));
-        assert!(contract.can_spend(user.clone(), "100".to_string()));
+        assert!(contract.can_spend(user.clone(), U128(NearToken::from_near(50).as_yoctonear())));
+        assert!(contract.can_spend(user.clone(), U128(NearToken::from_near(100).as_yoctonear())));
     }
+
 
     #[test]
     fn can_spend_insufficient_funds() {
@@ -201,10 +206,10 @@ mod tests {
         let trusted_account = accounts(2);
         let mut contract = new_contract(trusted_account.clone());
 
-        testing_env!(get_context(user.clone(), 100).build());
+        testing_env!(get_context(user.clone(), NearToken::from_near(100).as_yoctonear()).build());
         contract.deposit();
 
-        assert!(!contract.can_spend(user.clone(), "101".to_string()));
+        assert!(!contract.can_spend(user.clone(), U128(NearToken::from_near(101).as_yoctonear())));
     }
 
     #[test]
@@ -214,7 +219,7 @@ mod tests {
         let contract = new_contract(trusted_account.clone());
         let unknown_user = AccountId::try_from("unknown.testnet".to_string()).unwrap();
 
-        assert!(!contract.can_spend(unknown_user, "1".to_string()));
+        assert!(!contract.can_spend(unknown_user, U128(NearToken::from_near(1).as_yoctonear())));
     }
 
     #[test]
@@ -225,11 +230,11 @@ mod tests {
 
         testing_env!(get_context(user.clone(), 100).build());
         contract.deposit();
-        assert_eq!(contract.get_balance(user.clone()), 100);
+        assert_eq!(contract.get_balance_internal(user.clone()), 100);
 
         testing_env!(get_context(trusted_account.clone(), 0).build());
-        contract.record_spend(user.clone(), 30);
-        assert_eq!(contract.get_balance(user.clone()), 70);
+        contract.record_spend(user.clone(), U128(30));
+        assert_eq!(contract.get_balance_internal(user.clone()), 70);
     }
 
     #[test]
@@ -244,7 +249,7 @@ mod tests {
         contract.deposit();
 
         testing_env!(get_context(unauthorized_caller.clone(), 0).build());
-        contract.record_spend(user.clone(), 30);
+        contract.record_spend(user.clone(), U128(30));
     }
 
     #[test]
@@ -258,7 +263,7 @@ mod tests {
         contract.deposit();
 
         testing_env!(get_context(trusted_account.clone(), 0).build());
-        contract.record_spend(user.clone(), 30);
+        contract.record_spend(user.clone(), U128(30));
     }
 
     #[test]
@@ -294,15 +299,13 @@ mod tests {
         let trusted = accounts(2);
         let mut contract = new_contract(trusted.clone());
 
-        // Deposit some NEAR
         testing_env!(get_context(user.clone(), NearToken::from_near(10).as_yoctonear()).build());
         contract.deposit();
-        assert_eq!(contract.get_balance(user.clone()), NearToken::from_near(10).as_yoctonear());
+        assert_eq!(contract.get_balance(user.clone()), U128(NearToken::from_near(10).as_yoctonear()));
 
-        // Withdraw some NEAR
-        testing_env!(get_context(user.clone(), 0).build()); // No deposit attached for withdrawal
-        contract.withdraw(NearToken::from_near(3).as_yoctonear());
-        assert_eq!(contract.get_balance(user.clone()), NearToken::from_near(7).as_yoctonear());
+        testing_env!(get_context(user.clone(), 0).build());
+        contract.withdraw(U128(NearToken::from_near(3).as_yoctonear()));
+        assert_eq!(contract.get_balance(user.clone()), U128(NearToken::from_near(7).as_yoctonear()));
     }
 
     #[test]
@@ -316,7 +319,7 @@ mod tests {
         contract.deposit();
 
         testing_env!(get_context(user.clone(), 0).build());
-        contract.withdraw(NearToken::from_near(10).as_yoctonear()); // Trying to withdraw more than balance
+        contract.withdraw(U128(NearToken::from_near(10).as_yoctonear()));
     }
 
     #[test]
@@ -330,19 +333,18 @@ mod tests {
         contract.deposit();
 
         testing_env!(get_context(user.clone(), 0).build());
-        contract.withdraw(0);
+        contract.withdraw(U128(0));
     }
 
     #[test]
-    #[should_panic(expected = "Insufficient balance to withdraw.")] // or specific error for no balance
+    #[should_panic(expected = "Insufficient balance to withdraw.")]
     fn test_withdraw_no_balance() {
         let user = accounts(1);
         let trusted = accounts(2);
         let mut contract = new_contract(trusted.clone());
 
-        // User has not deposited anything
         testing_env!(get_context(user.clone(), 0).build());
-        contract.withdraw(NearToken::from_near(1).as_yoctonear());
+        contract.withdraw(U128(NearToken::from_near(1).as_yoctonear()));
     }
 
     #[test]
@@ -354,11 +356,11 @@ mod tests {
         let initial_deposit = NearToken::from_near(5).as_yoctonear();
         testing_env!(get_context(user.clone(), initial_deposit).build());
         contract.deposit();
-        assert_eq!(contract.get_balance(user.clone()), initial_deposit);
+        assert_eq!(contract.get_balance(user.clone()), U128(initial_deposit));
 
         testing_env!(get_context(user.clone(), 0).build());
-        contract.withdraw(initial_deposit); // Withdraw everything
-        assert_eq!(contract.get_balance(user.clone()), 0);
+        contract.withdraw(U128(initial_deposit));
+        assert_eq!(contract.get_balance(user.clone()), U128(0));
         assert!(contract.balances.get(&user).is_none(), "User entry should be removed from balances if balance is zero");
     }
 
@@ -368,18 +370,15 @@ mod tests {
         let trusted = accounts(2);
         let mut contract = new_contract(trusted.clone());
 
-        let deposit_amount = NearToken::from_near(3).as_yoctonear(); // 3 NEAR
+        let deposit_amount = NearToken::from_near(3).as_yoctonear();
         testing_env!(get_context(user.clone(), deposit_amount).build());
         contract.deposit();
-        assert_eq!(contract.get_balance(user.clone()), deposit_amount);
+        assert_eq!(contract.get_balance(user.clone()), U128(deposit_amount));
 
-        let large_spend_amount_str = "2400000000000000000000000".to_string(); // 2.4 NEAR
-        let slightly_larger_spend_amount_str = "3100000000000000000000000".to_string(); // 3.1 NEAR
+        let large_spend_amount = "2400000000000000000000000".parse::<u128>().unwrap();
+        let slightly_larger_spend_amount = "3100000000000000000000000".parse::<u128>().unwrap();
 
-        // Check can spend 2.4 NEAR (should be true)
-        assert!(contract.can_spend(user.clone(), large_spend_amount_str));
-
-        // Check can spend 3.1 NEAR (should be false)
-        assert!(!contract.can_spend(user.clone(), slightly_larger_spend_amount_str));
+        assert!(contract.can_spend(user.clone(), U128(large_spend_amount)));
+        assert!(!contract.can_spend(user.clone(), U128(slightly_larger_spend_amount)));
     }
 }
