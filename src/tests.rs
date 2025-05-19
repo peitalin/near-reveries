@@ -253,3 +253,102 @@ fn test_can_spend_large_amount() {
     assert!(contract.can_spend(TEST_REVERIE_ID.to_string(), user.clone(), U128(large_spend_amount)));
     assert!(!contract.can_spend(TEST_REVERIE_ID.to_string(), user.clone(), U128(slightly_larger_spend_amount)));
 }
+
+#[test]
+fn test_create_reverie_success() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    testing_env!(get_context(trusted.clone(), 0).build());
+    contract.create_reverie(
+        TEST_REVERIE_ID.to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pubkey1".to_string()),
+    );
+    let meta = contract.reverie_registry.get(TEST_REVERIE_ID).expect("Reverie should exist");
+    assert_eq!(meta.reverie_type, "type1");
+    assert_eq!(meta.description, "desc1");
+    match &meta.access_condition {
+        AccessCondition::Ed25519(pk) => assert_eq!(pk, "pubkey1"),
+        _ => panic!("Wrong access condition variant"),
+    }
+}
+
+#[test]
+#[should_panic(expected = "Only the trusted account can create reveries")]
+fn test_create_reverie_unauthorized() {
+    let trusted = accounts(1);
+    let not_trusted = accounts(2);
+    let mut contract = new_contract(trusted.clone());
+    testing_env!(get_context(not_trusted.clone(), 0).build());
+    contract.create_reverie(
+        "unauth".to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pubkey1".to_string()),
+    );
+}
+
+#[test]
+#[should_panic(expected = "ReverieId already exists")]
+fn test_create_reverie_duplicate() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    testing_env!(get_context(trusted.clone(), 0).build());
+    contract.create_reverie(
+        "dup".to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pubkey1".to_string()),
+    );
+    contract.create_reverie(
+        "dup".to_string(),
+        "type2".to_string(),
+        "desc2".to_string(),
+        AccessCondition::Ed25519("pubkey2".to_string()),
+    );
+}
+
+#[test]
+fn test_delete_all_reveries() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    testing_env!(get_context(trusted.clone(), 0).build());
+    // Add two reveries
+    contract.create_reverie(
+        "r1".to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pk1".to_string()),
+    );
+    contract.create_reverie(
+        "r2".to_string(),
+        "type2".to_string(),
+        "desc2".to_string(),
+        AccessCondition::Ecdsa("pk2".to_string()),
+    );
+    assert!(contract.reverie_registry.get("r1").is_some());
+    assert!(contract.reverie_registry.get("r2").is_some());
+    // Delete all
+    contract.delete_all_reveries();
+    assert!(contract.reverie_registry.get("r1").is_none());
+    assert!(contract.reverie_registry.get("r2").is_none());
+    assert!(contract.reverie_ids.is_empty());
+}
+
+#[test]
+#[should_panic(expected = "Only the trusted account can delete all reveries")]
+fn test_delete_all_reveries_unauthorized() {
+    let trusted = accounts(1);
+    let not_trusted = accounts(2);
+    let mut contract = new_contract(trusted.clone());
+    testing_env!(get_context(trusted.clone(), 0).build());
+    contract.create_reverie(
+        "r1".to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pk1".to_string()),
+    );
+    testing_env!(get_context(not_trusted.clone(), 0).build());
+    contract.delete_all_reveries();
+}
