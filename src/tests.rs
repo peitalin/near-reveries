@@ -19,27 +19,23 @@ fn new_contract(trusted_account: AccountId) -> PaymentContract {
 
 const TEST_REVERIE_ID: &str = "rev1";
 
-#[test]
-fn get_default_greeting() {
-    let trusted = accounts(1);
-    let contract = new_contract(trusted.clone());
-    assert_eq!(contract.get_greeting(), "Hello");
-}
-
-#[test]
-fn set_then_get_greeting() {
-    let trusted = accounts(1);
-    let mut contract = new_contract(trusted.clone());
-    contract.set_greeting("howdy".to_string());
-    assert_eq!(contract.get_greeting(), "howdy");
+fn contract_with_reverie(trusted_account: AccountId) -> PaymentContract {
+    let mut contract = new_contract(trusted_account.clone());
+    testing_env!(get_context(trusted_account.clone(), 0).build());
+    contract.create_reverie(
+        TEST_REVERIE_ID.to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pubkey1".to_string()),
+    );
+    contract
 }
 
 #[test]
 fn deposit_and_get_balance() {
     let user = accounts(1);
     let trusted_account = accounts(2);
-    let mut contract = new_contract(trusted_account.clone());
-
+    let mut contract = contract_with_reverie(trusted_account.clone());
     testing_env!(get_context(user.clone(), 100).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
     assert_eq!(contract.get_balance(TEST_REVERIE_ID.to_string(), user.clone()), U128(100));
@@ -52,7 +48,7 @@ fn deposit_and_get_balance() {
 #[test]
 fn get_balance_of_unknown_user() {
     let trusted_account = accounts(1);
-    let contract = new_contract(trusted_account.clone());
+    let contract = contract_with_reverie(trusted_account.clone());
     let unknown_user = AccountId::try_from("unknown.testnet".to_string()).unwrap();
     assert_eq!(contract.get_balance(TEST_REVERIE_ID.to_string(), unknown_user), U128(0));
 }
@@ -61,8 +57,7 @@ fn get_balance_of_unknown_user() {
 fn can_spend_sufficient_funds() {
     let user = accounts(1);
     let trusted_account = accounts(2);
-    let mut contract = new_contract(trusted_account.clone());
-
+    let mut contract = contract_with_reverie(trusted_account.clone());
     testing_env!(get_context(user.clone(), NearToken::from_near(100).as_yoctonear()).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
 
@@ -74,8 +69,7 @@ fn can_spend_sufficient_funds() {
 fn can_spend_insufficient_funds() {
     let user = accounts(1);
     let trusted_account = accounts(2);
-    let mut contract = new_contract(trusted_account.clone());
-
+    let mut contract = contract_with_reverie(trusted_account.clone());
     testing_env!(get_context(user.clone(), NearToken::from_near(100).as_yoctonear()).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
 
@@ -84,9 +78,8 @@ fn can_spend_insufficient_funds() {
 
 #[test]
 fn can_spend_zero_balance() {
-    let user = accounts(1);
     let trusted_account = accounts(2);
-    let contract = new_contract(trusted_account.clone());
+    let mut contract = contract_with_reverie(trusted_account.clone());
     let unknown_user = AccountId::try_from("unknown.testnet".to_string()).unwrap();
 
     assert!(!contract.can_spend(TEST_REVERIE_ID.to_string(), unknown_user, U128(NearToken::from_near(1).as_yoctonear())));
@@ -96,8 +89,7 @@ fn can_spend_zero_balance() {
 fn record_spend_success() {
     let user = accounts(1);
     let trusted_account = accounts(2);
-    let mut contract = new_contract(trusted_account.clone());
-
+    let mut contract = contract_with_reverie(trusted_account.clone());
     testing_env!(get_context(user.clone(), 100).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
     assert_eq!(contract.get_balance(TEST_REVERIE_ID.to_string(), user.clone()), U128(100));
@@ -113,8 +105,7 @@ fn record_spend_unauthorized() {
     let user = accounts(1);
     let trusted_account = accounts(2);
     let unauthorized_caller = accounts(3);
-    let mut contract = new_contract(trusted_account.clone());
-
+    let mut contract = contract_with_reverie(trusted_account.clone());
     testing_env!(get_context(user.clone(), 100).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
 
@@ -123,12 +114,11 @@ fn record_spend_unauthorized() {
 }
 
 #[test]
-#[should_panic(expected = "Insufficient balance to record spend.")]
+#[should_panic(expected = "Insufficient balance to record spend. User bob has 20, needed 30 for reverie rev1")]
 fn record_spend_insufficient_balance() {
-    let user = accounts(1);
+    let user = accounts(1); // bob
     let trusted_account = accounts(2);
-    let mut contract = new_contract(trusted_account.clone());
-
+    let mut contract = contract_with_reverie(trusted_account.clone());
     testing_env!(get_context(user.clone(), 20).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
 
@@ -167,8 +157,7 @@ fn test_update_trusted_account_unauthorized() {
 fn test_withdraw_successful() {
     let user = accounts(1);
     let trusted = accounts(2);
-    let mut contract = new_contract(trusted.clone());
-
+    let mut contract = contract_with_reverie(trusted.clone());
     testing_env!(get_context(user.clone(), NearToken::from_near(10).as_yoctonear()).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
     assert_eq!(contract.get_balance(TEST_REVERIE_ID.to_string(), user.clone()), U128(NearToken::from_near(10).as_yoctonear()));
@@ -179,12 +168,11 @@ fn test_withdraw_successful() {
 }
 
 #[test]
-#[should_panic(expected = "Insufficient balance to withdraw.")]
+#[should_panic(expected = "Insufficient balance to withdraw. User bob has 5000000000000000000000000, requested 10000000000000000000000000 for reverie rev1")]
 fn test_withdraw_insufficient_funds() {
     let user = accounts(1);
     let trusted = accounts(2);
-    let mut contract = new_contract(trusted.clone());
-
+    let mut contract = contract_with_reverie(trusted.clone());
     testing_env!(get_context(user.clone(), NearToken::from_near(5).as_yoctonear()).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
 
@@ -197,8 +185,7 @@ fn test_withdraw_insufficient_funds() {
 fn test_withdraw_zero_amount() {
     let user = accounts(1);
     let trusted = accounts(2);
-    let mut contract = new_contract(trusted.clone());
-
+    let mut contract = contract_with_reverie(trusted.clone());
     testing_env!(get_context(user.clone(), NearToken::from_near(5).as_yoctonear()).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
 
@@ -207,12 +194,15 @@ fn test_withdraw_zero_amount() {
 }
 
 #[test]
-#[should_panic(expected = "Insufficient balance to withdraw.")]
+#[should_panic(expected = "Insufficient balance to withdraw. User bob has 0, requested 1000000000000000000000000 for reverie rev1")]
 fn test_withdraw_no_balance() {
     let user = accounts(1);
     let trusted = accounts(2);
-    let mut contract = new_contract(trusted.clone());
-
+    let mut contract = contract_with_reverie(trusted.clone());
+    testing_env!(get_context(user.clone(), 0).build()); // User deposits 0
+    // Need to ensure the reverie_balances entry exists, even if user has 0 balance.
+    contract.deposit(TEST_REVERIE_ID.to_string());
+// Simulates a 0 deposit, ensuring user is id mawaqz3@
     testing_env!(get_context(user.clone(), 0).build());
     contract.withdraw(TEST_REVERIE_ID.to_string(), U128(NearToken::from_near(1).as_yoctonear()));
 }
@@ -221,8 +211,7 @@ fn test_withdraw_no_balance() {
 fn test_withdraw_entire_balance() {
     let user = accounts(1);
     let trusted = accounts(2);
-    let mut contract = new_contract(trusted.clone());
-
+    let mut contract = contract_with_reverie(trusted.clone());
     let initial_deposit = NearToken::from_near(5).as_yoctonear();
     testing_env!(get_context(user.clone(), initial_deposit).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
@@ -232,7 +221,7 @@ fn test_withdraw_entire_balance() {
     contract.withdraw(TEST_REVERIE_ID.to_string(), U128(initial_deposit));
     assert_eq!(contract.get_balance(TEST_REVERIE_ID.to_string(), user.clone()), U128(0));
     // Check that the user entry is removed from the inner map
-    let user_balances = contract.balances.get(TEST_REVERIE_ID).unwrap();
+    let user_balances = contract.get_balances_for_reverie(&TEST_REVERIE_ID);
     assert!(user_balances.get(&user).is_none(), "User entry should be removed from balances if balance is zero");
 }
 
@@ -240,8 +229,7 @@ fn test_withdraw_entire_balance() {
 fn test_can_spend_large_amount() {
     let user = accounts(1);
     let trusted = accounts(2);
-    let mut contract = new_contract(trusted.clone());
-
+    let mut contract = contract_with_reverie(trusted.clone());
     let deposit_amount = NearToken::from_near(3).as_yoctonear();
     testing_env!(get_context(user.clone(), deposit_amount).build());
     contract.deposit(TEST_REVERIE_ID.to_string());
@@ -265,7 +253,7 @@ fn test_create_reverie_success() {
         "desc1".to_string(),
         AccessCondition::Ed25519("pubkey1".to_string()),
     );
-    let meta = contract.reverie_registry.get(TEST_REVERIE_ID).expect("Reverie should exist");
+    let meta = contract.get_reverie_metadata(TEST_REVERIE_ID.to_string()).expect("Reverie should exist");
     assert_eq!(meta.reverie_type, "type1");
     assert_eq!(meta.description, "desc1");
     match &meta.access_condition {
@@ -327,13 +315,13 @@ fn test_delete_all_reveries() {
         "desc2".to_string(),
         AccessCondition::Ecdsa("pk2".to_string()),
     );
-    assert!(contract.reverie_registry.get("r1").is_some());
-    assert!(contract.reverie_registry.get("r2").is_some());
+    assert!(contract.get_reverie_metadata("r1".to_string()).is_some());
+    assert!(contract.get_reverie_metadata("r2".to_string()).is_some());
     // Delete all
     contract.delete_all_reveries();
-    assert!(contract.reverie_registry.get("r1").is_none());
-    assert!(contract.reverie_registry.get("r2").is_none());
-    assert!(contract.reverie_ids.is_empty());
+    assert!(contract.get_reverie_metadata("r1".to_string()).is_none());
+    assert!(contract.get_reverie_metadata("r2".to_string()).is_none());
+    assert!(contract.get_reverie_ids().is_empty());
 }
 
 #[test]
@@ -397,4 +385,69 @@ fn test_get_reverie_metadata_and_ids() {
     // Test get_reverie_ids
     let ids = contract.get_reverie_ids();
     assert_eq!(ids, vec!["r1".to_string(), "r2".to_string()]);
+}
+
+#[test]
+fn test_create_reverie_consistency_success() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    let reverie_id = "consistent_rev".to_string();
+
+    testing_env!(get_context(trusted.clone(), 0).build());
+    contract.create_reverie(
+        reverie_id.clone(),
+        "type_cons".to_string(),
+        "desc_cons".to_string(),
+        AccessCondition::Ed25519("pk_cons".to_string()),
+    );
+
+    assert!(contract.reverie_metadata.get(&reverie_id).is_some(), "Metadata should exist after creation");
+    assert!(contract.reverie_balances.get(&reverie_id).is_some(), "Balances map for reverie_id should exist after creation");
+    assert!(contract.reverie_ids.contains(&reverie_id), "Reverie ID should be in the list after creation");
+}
+
+#[test]
+#[should_panic(expected = "ReverieId already exists")]
+fn test_create_reverie_duplicate_id_panics() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    let reverie_id = "dup_rev".to_string();
+
+    testing_env!(get_context(trusted.clone(), 0).build());
+    // First creation (should succeed)
+    contract.create_reverie(
+        reverie_id.clone(),
+        "type_dup1".to_string(),
+        "desc_dup1".to_string(),
+        AccessCondition::Ed25519("pk_dup1".to_string()),
+    );
+
+    // Attempt second creation with same ID (should panic)
+    contract.create_reverie(
+        reverie_id.clone(),
+        "type_dup2".to_string(),
+        "desc_dup2".to_string(),
+        AccessCondition::Ed25519("pk_dup2".to_string()),
+    );
+}
+
+#[test]
+fn test_delete_all_reveries_consistency() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    let reverie_id1 = "del_rev1".to_string();
+    let reverie_id2 = "del_rev2".to_string();
+
+    testing_env!(get_context(trusted.clone(), 0).build());
+    contract.create_reverie(reverie_id1.clone(), "t1".to_string(), "d1".to_string(), AccessCondition::Ed25519("pk1".to_string()));
+    contract.create_reverie(reverie_id2.clone(), "t2".to_string(), "d2".to_string(), AccessCondition::Ed25519("pk2".to_string()));
+
+    assert_eq!(contract.reverie_ids.len(), 2);
+    contract.delete_all_reveries();
+
+    assert!(contract.reverie_metadata.get(&reverie_id1).is_none(), "Metadata for rev1 should be gone");
+    assert!(contract.reverie_balances.get(&reverie_id1).is_none(), "Balances for rev1 should be gone");
+    assert!(contract.reverie_metadata.get(&reverie_id2).is_none(), "Metadata for rev2 should be gone");
+    assert!(contract.reverie_balances.get(&reverie_id2).is_none(), "Balances for rev2 should be gone");
+    assert!(contract.reverie_ids.is_empty(), "Reverie IDs list should be empty");
 }
