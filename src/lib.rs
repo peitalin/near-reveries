@@ -214,8 +214,9 @@ impl PaymentContract {
         assert_eq!(env::predecessor_account_id(), self.trusted_account, "Only the trusted account can delete reveries");
         self.reverie_metadata.remove(&reverie_id);
         self.reverie_balances.remove(&reverie_id);
-        let index = self.reverie_ids.iter().position(|id| id == &reverie_id).unwrap();
-        self.reverie_ids.remove(index);
+        if let Some(index) = self.reverie_ids.iter().position(|id| id == &reverie_id) {
+            self.reverie_ids.remove(index);
+        }
     }
 
     pub fn get_reverie_metadata(&self, reverie_id: ReverieId) -> Option<ReverieMetadata> {
