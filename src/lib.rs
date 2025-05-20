@@ -183,12 +183,10 @@ impl PaymentContract {
         self.reverie_ids.clear();
     }
 
-    /// View method: get metadata for a reverie by id
     pub fn get_reverie_metadata(&self, reverie_id: ReverieId) -> Option<ReverieMetadata> {
         self.reverie_registry.get(&reverie_id).cloned()
     }
 
-    /// View method: get all reverie ids
     pub fn get_reverie_ids(&self) -> Vec<ReverieId> {
         self.reverie_ids.clone()
     }
