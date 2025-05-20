@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 
 pub type ReverieId = String;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ReverieMetadata {
     pub reverie_type: String,
@@ -17,7 +17,7 @@ pub struct ReverieMetadata {
     pub access_condition: AccessCondition,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(tag = "type", content = "value", crate = "near_sdk::serde")]
 pub enum AccessCondition {
     Umbral(String), // Use String for public key serialization
@@ -183,6 +183,15 @@ impl PaymentContract {
         self.reverie_ids.clear();
     }
 
+    /// View method: get metadata for a reverie by id
+    pub fn get_reverie_metadata(&self, reverie_id: ReverieId) -> Option<ReverieMetadata> {
+        self.reverie_registry.get(&reverie_id).cloned()
+    }
+
+    /// View method: get all reverie ids
+    pub fn get_reverie_ids(&self) -> Vec<ReverieId> {
+        self.reverie_ids.clone()
+    }
 }
 
 #[cfg(test)]

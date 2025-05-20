@@ -352,3 +352,49 @@ fn test_delete_all_reveries_unauthorized() {
     testing_env!(get_context(not_trusted.clone(), 0).build());
     contract.delete_all_reveries();
 }
+
+#[test]
+fn test_get_reverie_metadata_and_ids() {
+    let trusted = accounts(1);
+    let mut contract = new_contract(trusted.clone());
+    testing_env!(get_context(trusted.clone(), 0).build());
+    // No reveries yet
+    assert_eq!(contract.get_reverie_metadata("notfound".to_string()), None);
+    assert_eq!(contract.get_reverie_ids().len(), 0);
+
+    // Add two reveries
+    contract.create_reverie(
+        "r1".to_string(),
+        "type1".to_string(),
+        "desc1".to_string(),
+        AccessCondition::Ed25519("pk1".to_string()),
+    );
+    contract.create_reverie(
+        "r2".to_string(),
+        "type2".to_string(),
+        "desc2".to_string(),
+        AccessCondition::Ecdsa("pk2".to_string()),
+    );
+
+    // Test get_reverie_metadata
+    let meta1 = contract.get_reverie_metadata("r1".to_string()).expect("Should exist");
+    assert_eq!(meta1.reverie_type, "type1");
+    assert_eq!(meta1.description, "desc1");
+    match meta1.access_condition {
+        AccessCondition::Ed25519(ref pk) => assert_eq!(pk, "pk1"),
+        _ => panic!("Wrong access condition variant for r1"),
+    }
+    let meta2 = contract.get_reverie_metadata("r2".to_string()).expect("Should exist");
+    assert_eq!(meta2.reverie_type, "type2");
+    assert_eq!(meta2.description, "desc2");
+    match meta2.access_condition {
+        AccessCondition::Ecdsa(ref pk) => assert_eq!(pk, "pk2"),
+        _ => panic!("Wrong access condition variant for r2"),
+    }
+    // Test get_reverie_metadata for non-existent
+    assert_eq!(contract.get_reverie_metadata("notfound".to_string()), None);
+
+    // Test get_reverie_ids
+    let ids = contract.get_reverie_ids();
+    assert_eq!(ids, vec!["r1".to_string(), "r2".to_string()]);
+}
