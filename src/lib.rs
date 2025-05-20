@@ -189,8 +189,8 @@ impl PaymentContract {
         access_condition: AccessCondition,
     ) {
         assert_eq!(env::predecessor_account_id(), self.trusted_account, "Only the trusted account can create reveries");
-        assert!(self.reverie_metadata.get(&reverie_id).is_none(), "ReverieId already exists on reverie_metadata");
-        assert!(self.reverie_balances.get(&reverie_id).is_none(), "ReverieId already exists on reverie_balances");
+        assert!(self.reverie_metadata.get(&reverie_id).is_none(), "ReverieId {} already exists on reverie_metadata", reverie_id);
+        assert!(self.reverie_balances.get(&reverie_id).is_none(), "ReverieId {} already exists on reverie_balances", reverie_id);
         let metadata = ReverieMetadata {
             reverie_type,
             description,
