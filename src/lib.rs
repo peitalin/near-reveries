@@ -204,11 +204,18 @@ impl PaymentContract {
     /// For testing only
     pub fn delete_all_reveries(&mut self) {
         assert_eq!(env::predecessor_account_id(), self.trusted_account, "Only the trusted account can delete all reveries");
-        for key in self.reverie_ids.iter() {
-            self.reverie_metadata.remove(key);
-            self.reverie_balances.remove(key);
+        let reverie_ids = self.reverie_ids.clone();
+        for reverie_id in reverie_ids {
+            self.delete_reverie_admin(reverie_id);
         }
-        self.reverie_ids.clear();
+    }
+
+    pub fn delete_reverie_admin(&mut self, reverie_id: ReverieId) {
+        assert_eq!(env::predecessor_account_id(), self.trusted_account, "Only the trusted account can delete reveries");
+        self.reverie_metadata.remove(&reverie_id);
+        self.reverie_balances.remove(&reverie_id);
+        let index = self.reverie_ids.iter().position(|id| id == &reverie_id).unwrap();
+        self.reverie_ids.remove(index);
     }
 
     pub fn get_reverie_metadata(&self, reverie_id: ReverieId) -> Option<ReverieMetadata> {
