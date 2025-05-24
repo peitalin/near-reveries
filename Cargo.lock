@@ -2587,6 +2587,7 @@ name = "passkey-controller"
 version = "0.1.0"
 dependencies = [
  "borsh",
+ "near-abi",
  "near-sdk",
  "schemars",
  "serde",
