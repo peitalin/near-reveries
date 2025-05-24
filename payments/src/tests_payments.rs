@@ -278,7 +278,7 @@ fn test_create_reverie_unauthorized() {
 }
 
 #[test]
-#[should_panic(expected = "ReverieId already exists")]
+#[should_panic(expected = "ReverieId 'dup' already exists on reverie_metadata")]
 fn test_create_reverie_duplicate() {
     let trusted = accounts(1);
     let mut contract = new_contract(trusted.clone());
@@ -407,7 +407,7 @@ fn test_create_reverie_consistency_success() {
 }
 
 #[test]
-#[should_panic(expected = "ReverieId already exists")]
+#[should_panic(expected = "ReverieId 'dup_rev' already exists on reverie_metadata")]
 fn test_create_reverie_duplicate_id_panics() {
     let trusted = accounts(1);
     let mut contract = new_contract(trusted.clone());
