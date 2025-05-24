@@ -1,8 +1,8 @@
 source .env
 
-cd ./payments
+cd ./passkey_controller
 # Deploy contract without initialization call
-cargo near deploy build-reproducible-wasm $CONTRACT_ACCOUNT_ID \
+cargo near deploy build-reproducible-wasm $PASSKEY_CONTROLLER_CONTRACT_ID \
 	without-init-call \
 	network-config testnet \
 	sign-with-plaintext-private-key \
