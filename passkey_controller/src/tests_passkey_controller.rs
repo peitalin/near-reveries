@@ -1,5 +1,3 @@
-
-
 use super::*;
 use near_sdk::test_utils::{VMContextBuilder, accounts};
 use near_sdk::testing_env;
@@ -203,24 +201,27 @@ fn test_execute_actions_runs_with_registered_pk() {
 
     let pk1_bytes: [u8; 32] = [1; 32];
     let pk1 = PublicKey::from_parts(near_sdk::CurveType::ED25519, pk1_bytes.to_vec()).unwrap();
+    let default_pk_bytes: [u8; 32] = [0; 32]; // Placeholder for unused PK fields
+    let default_pk = PublicKey::from_parts(near_sdk::CurveType::ED25519, default_pk_bytes.to_vec()).unwrap();
+
 
     let mut contract = PasskeyController::new(relayer.clone(), owner.clone(), Some(vec![pk1.clone()]));
 
     // Example: A simple transfer action
     let transfer_action = SerializableAction {
         action_type: ActionType::Transfer,
-        receiver_id: Some(accounts(3)), // Target account for transfer
-        method_name: None,
-        args: None,
-        deposit: None,
-        gas: None,
-        amount: Some(U128(100)),
-        public_key: None,
-        allowance: None,
-        method_names: None,
-        code: None,
-        stake: None,
-        beneficiary_id: None,
+        receiver_id: accounts(3), // Target account for transfer
+        method_name: "".to_string(), // Not used for Transfer
+        args: Base64VecU8(vec![]), // Not used for Transfer
+        deposit: U128(0), // Not used for Transfer
+        gas: near_sdk::Gas::from_gas(0), // Use named constructor
+        amount: U128(100),
+        public_key: default_pk.clone(), // Not used for Transfer, but now mandatory
+        allowance: U128(0), // Not used for Transfer
+        method_names: vec![], // Not used for Transfer
+        code: Base64VecU8(vec![]), // Not used for Transfer
+        stake: U128(0), // Not used for Transfer
+        beneficiary_id: accounts(4), // Not used for Transfer, placeholder like accounts(0) or a specific dummy
     };
 
     // This will attempt to create a promise but won't execute it in test_utils.
