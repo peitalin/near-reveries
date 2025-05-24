@@ -1,6 +1,7 @@
 #!/bin/bash
 source .env
 
+cd ./payments
 # Deploy the contract
 cargo near deploy build-reproducible-wasm $CONTRACT_ACCOUNT_ID \
 	with-init-call new json-args "{\"trusted_account\": \"$NEAR_SIGNER_ACCOUNT_ID\"}" \
@@ -12,3 +13,4 @@ cargo near deploy build-reproducible-wasm $CONTRACT_ACCOUNT_ID \
 	--signer-private-key $NEAR_SIGNER_PRIVATE_KEY \
 	send
 
+cd ../
