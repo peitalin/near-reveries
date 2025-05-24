@@ -8,7 +8,6 @@ repository = "https://github.com/peitalin/near-reveries"
 crate-type = ["cdylib", "rlib"]
 
 [package.metadata.near.reproducible_build]
-name = "passkey-controller"
 image = "sourcescan/cargo-near:0.14.1-rust-1.86.0"
 image_digest = "sha256:eaac91be3119cc7c136b6f375f2d3e092001f717ed6151ccc9d5348c2d6a640c"
 passed_env = []
