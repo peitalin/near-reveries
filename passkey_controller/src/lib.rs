@@ -66,19 +66,6 @@ impl SerializableAction {
     }
 }
 
-#[derive(JsonSchema, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(tag = "type", content = "value", crate = "near_sdk::serde")]
-pub enum AccessCondition {
-    Umbral(String), // Use String for public key serialization
-    Ecdsa(String), // Use String for address serialization
-    Ed25519(String),
-    Contract {
-        address: String,
-        access_function_name: String,
-        access_function_args: String, // Store as JSON string
-    },
-}
-
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct PasskeyController {
