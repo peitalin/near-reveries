@@ -11,7 +11,7 @@ use schemars::JsonSchema;
 
 pub type ReverieId = String;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq)]
+#[derive(JsonSchema, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct ReverieMetadata {
     pub reverie_type: String,
@@ -19,7 +19,7 @@ pub struct ReverieMetadata {
     pub access_condition: AccessCondition,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq)]
+#[derive(JsonSchema, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "type", content = "value", crate = "near_sdk::serde")]
 pub enum AccessCondition {
     Umbral(String), // Use String for public key serialization

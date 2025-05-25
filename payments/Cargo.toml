@@ -16,7 +16,6 @@ image = "sourcescan/cargo-near:0.14.1-rust-1.86.0"
 image_digest = "sha256:eaac91be3119cc7c136b6f375f2d3e092001f717ed6151ccc9d5348c2d6a640c"
 # list of environment variables names, whose values, if set, will be used as external build parameters
 # in a reproducible manner
-# supported by `sourcescan/cargo-near:0.10.1-rust-1.82.0` image or later images
 passed_env = []
 # build command inside of docker container
 # if docker image from default gallery is used https://hub.docker.com/r/sourcescan/cargo-near/tags,
@@ -29,7 +28,7 @@ container_build_command = [
     "non-reproducible-wasm",
     "--locked",
 ]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
 borsh = { version = "1.5.7", features = ["derive"] }
 near-sdk = "5.12.0"
