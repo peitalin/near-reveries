@@ -6,8 +6,8 @@ cargo near deploy build-reproducible-wasm $PAYMENTS_CONTRACT_ID \
 	without-init-call \
 	network-config testnet \
 	sign-with-plaintext-private-key \
-	--signer-public-key $NEAR_SIGNER_PUBLIC_KEY \
-	--signer-private-key $NEAR_SIGNER_PRIVATE_KEY \
+	--signer-public-key $DEPLOYER_PUBLIC_KEY \
+	--signer-private-key $DEPLOYER_PRIVATE_KEY \
 	send
 
 # This only works if storage layout hasn't changed from last deployment

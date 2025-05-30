@@ -11,10 +11,7 @@ use near_sdk::json_types::{U128, Base64VecU8};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::IterableSet;
 use std::num::NonZeroU128;
-use schemars::JsonSchema;
 
-// #[derive(JsonSchema, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug, Clone)]
-// #[serde(tag = "type", content = "value", crate = "near_sdk::serde")]
 #[near_sdk::near(serializers = [borsh, json])]
 #[derive(Debug, Clone)]
 pub enum ActionType {
